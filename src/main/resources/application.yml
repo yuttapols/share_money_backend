@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: share-money-backend
+  profiles:
+    active: dev
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Bangkok
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/share_money?currentSchema=shmy}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:1234}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: shmy
+        default_batch_fetch_size: 50
+        jdbc:
+          time_zone: Asia/Bangkok
+  flyway:
+    enabled: true
+    schemas: shmy
+    default-schema: shmy
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-change-this-secret-change-this-secret}
+    access-token-ttl-seconds: ${JWT_ACCESS_TTL:1800}
+    refresh-token-ttl-seconds: ${JWT_REFRESH_TTL:604800}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}

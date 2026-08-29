@@ -1,0 +1,10 @@
+logging:
+  level:
+    com.sharemoney: DEBUG
+    org.hibernate.SQL: DEBUG
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
