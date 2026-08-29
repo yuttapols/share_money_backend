@@ -18,10 +18,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LoginLogController {
 
+    private static final int MAX_LIMIT = 1000;
+
     private final LoginLogQueryService loginLogQueryService;
 
     @GetMapping
     public ApiResponse<List<LoginLogResponse>> list(@RequestParam(defaultValue = "200") int limit) {
-        return ApiResponse.success(loginLogQueryService.list(limit));
+        return ApiResponse.success(loginLogQueryService.list(Math.min(limit, MAX_LIMIT)));
     }
 }

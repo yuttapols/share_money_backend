@@ -50,10 +50,15 @@ public class DebtorService {
 
     @Transactional(readOnly = true)
     public List<DebtorResponse> list(String search) {
+        String searchPattern = toSearchPattern(search);
         List<User> debtors = SecurityUtils.isAdmin()
-                ? userRepository.searchAllDebtors(UserRole.DEBTOR, search)
-                : userRepository.searchDebtorsByCreditor(UserRole.DEBTOR, SecurityUtils.currentUserId(), search);
+                ? userRepository.searchAllDebtors(UserRole.DEBTOR, searchPattern)
+                : userRepository.searchDebtorsByCreditor(UserRole.DEBTOR, SecurityUtils.currentUserId(), searchPattern);
         return debtors.stream().map(userMapper::toDebtorResponse).toList();
+    }
+
+    private String toSearchPattern(String search) {
+        return StringUtils.hasText(search) ? "%" + search.toLowerCase() + "%" : null;
     }
 
     @Transactional

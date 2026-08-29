@@ -19,23 +19,25 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("""
             select u from User u
+            join fetch u.creditor
             where u.role = :role and u.creditor.id = :creditorId
-              and (:search is null or :search = ''
-                   or lower(u.fullName) like lower(concat('%', :search, '%'))
-                   or lower(u.username) like lower(concat('%', :search, '%')))
+              and (:searchPattern is null
+                   or lower(u.fullName) like :searchPattern
+                   or lower(u.username) like :searchPattern)
             order by u.fullName
             """)
-    List<User> searchDebtorsByCreditor(@Param("role") UserRole role, @Param("creditorId") Long creditorId, @Param("search") String search);
+    List<User> searchDebtorsByCreditor(@Param("role") UserRole role, @Param("creditorId") Long creditorId, @Param("searchPattern") String searchPattern);
 
     @Query("""
             select u from User u
+            join fetch u.creditor
             where u.role = :role
-              and (:search is null or :search = ''
-                   or lower(u.fullName) like lower(concat('%', :search, '%'))
-                   or lower(u.username) like lower(concat('%', :search, '%')))
+              and (:searchPattern is null
+                   or lower(u.fullName) like :searchPattern
+                   or lower(u.username) like :searchPattern)
             order by u.fullName
             """)
-    List<User> searchAllDebtors(@Param("role") UserRole role, @Param("search") String search);
+    List<User> searchAllDebtors(@Param("role") UserRole role, @Param("searchPattern") String searchPattern);
 
     @Query("""
             select u.creditor.id as creditorId, count(u) as debtorCount
