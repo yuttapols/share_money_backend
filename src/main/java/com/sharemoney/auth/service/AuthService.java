@@ -35,21 +35,25 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuditLogService auditLogService;
+    private final LoginAttemptService loginAttemptService;
 
     @Value("${app.jwt.refresh-token-ttl-seconds}")
     private long refreshTokenTtlSeconds;
 
     @Transactional
     public LoginResponse login(LoginRequest request, String ipAddress) {
-        User user = userRepository.findByUsernameIgnoreCase(request.username())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
+        loginAttemptService.assertNotLocked(request.username());
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        User user = userRepository.findByUsernameIgnoreCase(request.username()).orElse(null);
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            loginAttemptService.recordFailure(request.username());
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
         if (!user.isActive()) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
+
+        loginAttemptService.recordSuccess(request.username());
 
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = issueRefreshToken(user);

@@ -120,6 +120,9 @@ constant ใน `ErrorCode` ห้าม hardcode string กระจายอ�
   `@Transactional` เดียวกับการเขียน child record เสมอ
 - Password เก็บด้วย BCrypt เท่านั้น, JWT access token อายุสั้น (~30 นาที) + refresh token เก็บใน DB
   (hash) เพื่อ revoke ได้
+- Login ผิดครบ 5 ครั้งต่อ username → lock ชั่วคราว 15 นาที (`LoginAttemptService`, in-memory ต่อ instance —
+  ถ้า scale เป็นหลาย instance ต้องย้ายไป shared store เช่น Redis)
+- `JwtSecretGuard` เช็คตอน startup ว่าถ้า profile ≠ `dev` ห้ามใช้ `JWT_SECRET` ค่า default เด็ดขาด (fail fast)
 
 ## Code Style
 
@@ -209,3 +212,8 @@ StoredFile record(publicId, secureUrl, originalFilename, format, resourceType, b
   การลบ ตารางจะโตไปเรื่อย ๆ ตามอายุการใช้งานระบบ ควรพิจารณาทำตอน Phase 4 (hardening/operations):
   ตั้ง retention (เช่น เก็บ 90 วันแล้วลบทิ้ง) หรือ archive ออกไปตารางแยก/storage อื่นก่อนลบ ถ้าต้องเก็บไว้ใช้
   สอบสวนย้อนหลัง
+- **`ip_address` ใน `login_logs` เชื่อ `X-Forwarded-For` แบบไม่ตรวจสอบ** (`AuthController.resolveClientIp`) —
+  ตอนนี้ไม่มี reverse proxy คั่นกลาง ใครก็ปลอม header นี้ใส่ IP อะไรก็ได้ผ่าน client ตรง ๆ แล้วเราบันทึกลง DB
+  โดยไม่เช็ค ต้องแก้ตอน Phase 4 พร้อมกับตั้ง Nginx จริง: ตั้ง `server.forward-headers-strategy: framework`
+  ของ Spring Boot + ให้ Nginx **overwrite** (ไม่ใช่แค่ pass-through) header `X-Forwarded-For` ด้วย IP จริงของ
+  client เสมอ ไม่งั้นข้อมูลนี้ใช้สอบสวน incident จริงไม่ได้เลย

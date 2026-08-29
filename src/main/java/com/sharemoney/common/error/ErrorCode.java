@@ -15,6 +15,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_INVALID("ERR_REFRESH_TOKEN_INVALID", "Refresh token is invalid or revoked", "Your session has expired. Please login again.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_EXPIRED("ERR_REFRESH_TOKEN_EXPIRED", "Refresh token has expired", "Your session has expired. Please login again.", HttpStatus.UNAUTHORIZED),
     OLD_PASSWORD_INCORRECT("ERR_OLD_PASSWORD_INCORRECT", "Old password is incorrect", "Old password is incorrect.", HttpStatus.BAD_REQUEST),
+    ACCOUNT_TEMPORARILY_LOCKED("ERR_ACCOUNT_LOCKED", "Account temporarily locked due to too many failed login attempts", "Too many failed login attempts. Please try again in a few minutes.", HttpStatus.TOO_MANY_REQUESTS),
 
     USERNAME_DUPLICATE("ERR_USERNAME_DUPLICATE", "Username already exists", "This username is already taken.", HttpStatus.CONFLICT),
     MENU_KEY_DUPLICATE("ERR_MENU_KEY_DUPLICATE", "Menu key already exists", "This menu key is already in use.", HttpStatus.CONFLICT),
