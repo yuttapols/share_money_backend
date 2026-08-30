@@ -1,7 +1,6 @@
 logging:
   level:
     com.sharemoney: DEBUG
-    org.hibernate.SQL: DEBUG
 
 springdoc:
   api-docs:

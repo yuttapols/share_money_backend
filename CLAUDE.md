@@ -194,6 +194,21 @@ StoredFile record(publicId, secureUrl, originalFilename, format, resourceType, b
   `04-api-specification.md`, ตาราง DB ที่ `03-database-design.md`, validation ทุก field ที่
   `07-validation-rules.md`
 
+### ⚠️ Override: ขอบเขตสิทธิ์ ADMIN (ต่างจากเอกสาร requirement เดิม)
+
+เอกสาร `01-requirements.md`/`04-api-specification.md` §15 (role matrix) ระบุว่า ADMIN เห็นข้อมูลหนี้ได้ทั้งหมด
+("admin=ทั้งหมด") — **แต่ตัดสินใจเปลี่ยนแล้ว**: ข้อมูลหนี้เป็นเรื่องระหว่างเจ้าหนี้กับลูกหนี้เท่านั้น ADMIN
+**ไม่ควรเห็น**
+
+- **ADMIN ห้ามเข้าถึง**: `/api/debts/**` (รวม installment/open-loan record ทุก action), `/api/reports/due`
+  และ `/api/reports/due/pdf` — ตอนสร้าง Phase 2 (debt module) และ Phase 3 (report module) ห้ามใส่
+  `hasRole('ADMIN')` ใน `@PreAuthorize` ของ endpoint กลุ่มนี้เด็ดขาด (ต่างจาก role matrix ในเอกสารเดิม)
+- **ADMIN ยังเข้าถึงได้**: `/api/slips/**` (ดูรูปสลิปหลักฐานการโอนได้ปกติ) — เผื่อกรณีต้อง support/ไกล่เกลี่ยข้อพิพาท
+  การโอนเงินระหว่างเจ้าหนี้-ลูกหนี้
+- **ADMIN ยังเข้าถึงได้ตามเดิม**: user management ทั้งหมด (creditor/debtor CRUD), เมนู, login log, ตัวเลือก
+  จำนวนงวด, documents — ไม่กระทบ
+- เมนู `menu.debts` และ `menu.reports` ถูกเอา ADMIN ออกจาก `menu_permissions` แล้ว (`V5__restrict_admin_debt_menu.sql`)
+
 ## Roadmap
 
 แบ่ง 4 phase ตาม `09-implementation-roadmap.md` — Phase 1 (Foundation/Security/User) กำลังอยู่ระหว่างทำ
@@ -217,3 +232,7 @@ StoredFile record(publicId, secureUrl, originalFilename, format, resourceType, b
   โดยไม่เช็ค ต้องแก้ตอน Phase 4 พร้อมกับตั้ง Nginx จริง: ตั้ง `server.forward-headers-strategy: framework`
   ของ Spring Boot + ให้ Nginx **overwrite** (ไม่ใช่แค่ pass-through) header `X-Forwarded-For` ด้วย IP จริงของ
   client เสมอ ไม่งั้นข้อมูลนี้ใช้สอบสวน incident จริงไม่ได้เลย
+- **`docker-compose.yml`** — มีแค่ `Dockerfile` (multi-stage build, `maven:3.9-eclipse-temurin-21` →
+  `eclipse-temurin:21-jre-alpine`, non-root user) สำหรับตัว backend เดี่ยว ๆ เท่านั้น ยังไม่มี compose ผูกกับ
+  PostgreSQL/Nginx ให้ครบ — ทำตอน Phase 4 ตาม roadmap (หมายเหตุ: ไม่ต้องมี MinIO ใน compose แล้ว เพราะเปลี่ยน
+  ไปใช้ Cloudinary สำหรับเก็บรูปแทน — ดูหัวข้อ "File Storage — Cloudinary")
