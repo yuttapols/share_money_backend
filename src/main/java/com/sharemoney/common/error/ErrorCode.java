@@ -23,7 +23,33 @@ public enum ErrorCode {
     DEBTOR_NOT_OWNED("ERR_DEBTOR_NOT_OWNED", "Debtor does not belong to this creditor", "You do not have permission to manage this debtor.", HttpStatus.FORBIDDEN),
 
     USER_NOT_FOUND("ERR_USER_NOT_FOUND", "User not found", "The requested user was not found.", HttpStatus.NOT_FOUND),
-    MENU_ITEM_NOT_FOUND("ERR_MENU_ITEM_NOT_FOUND", "Menu item not found", "The requested menu item was not found.", HttpStatus.NOT_FOUND);
+    MENU_ITEM_NOT_FOUND("ERR_MENU_ITEM_NOT_FOUND", "Menu item not found", "The requested menu item was not found.", HttpStatus.NOT_FOUND),
+
+    DEBT_NOT_FOUND("ERR_DEBT_NOT_FOUND", "Debt not found", "The requested debt was not found.", HttpStatus.NOT_FOUND),
+    DEBT_NOT_OWNED("ERR_DEBT_NOT_OWNED", "Debt does not belong to this creditor", "You do not have permission to manage this debt.", HttpStatus.FORBIDDEN),
+    INSTALLMENT_NOT_FOUND("ERR_INSTALLMENT_NOT_FOUND", "Installment not found", "The requested installment was not found.", HttpStatus.NOT_FOUND),
+    INSTALLMENT_ALREADY_PAID("ERR_INSTALLMENT_ALREADY_PAID", "Installment is already paid", "This installment has already been paid.", HttpStatus.BAD_REQUEST),
+    OPEN_RECORD_NOT_FOUND("ERR_OPEN_RECORD_NOT_FOUND", "Open loan record not found", "The requested record was not found.", HttpStatus.NOT_FOUND),
+    INVALID_INSTALLMENT_COUNT("ERR_INVALID_INSTALLMENT_COUNT", "Installment count is not an allowed choice", "Please select a valid number of installments.", HttpStatus.BAD_REQUEST),
+    INVALID_DEBT_METHOD("ERR_INVALID_DEBT_METHOD", "Action is not valid for this debt method", "This action cannot be performed on this type of debt.", HttpStatus.BAD_REQUEST),
+
+    EMPTY_FILE("ERR_EMPTY_FILE", "Uploaded file is empty", "The uploaded file is empty.", HttpStatus.BAD_REQUEST),
+    INVALID_FILE_TYPE("ERR_INVALID_FILE_TYPE", "Uploaded file type is not allowed", "This file type is not allowed.", HttpStatus.BAD_REQUEST),
+    FILE_TOO_LARGE("ERR_FILE_TOO_LARGE", "Uploaded file exceeds the size limit", "The uploaded file is too large.", HttpStatus.BAD_REQUEST),
+    FILE_UPLOAD_FAILED("ERR_FILE_UPLOAD_FAILED", "File upload to storage failed", "File upload failed. Please try again.", HttpStatus.INTERNAL_SERVER_ERROR),
+    FILE_DELETE_FAILED("ERR_FILE_DELETE_FAILED", "File delete from storage failed", "File delete failed. Please try again.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    SLIP_NOT_FOUND("ERR_SLIP_NOT_FOUND", "Slip not found", "The requested slip was not found.", HttpStatus.NOT_FOUND),
+    SLIP_NOT_OWNED("ERR_SLIP_NOT_OWNED", "Slip does not belong to this user", "You do not have permission to access this slip.", HttpStatus.FORBIDDEN),
+
+    DOCUMENT_NOT_FOUND("ERR_DOCUMENT_NOT_FOUND", "Document not found", "The requested document was not found.", HttpStatus.NOT_FOUND),
+    DOCUMENT_NOT_OWNED("ERR_DOCUMENT_NOT_OWNED", "Document does not belong to this creditor", "You do not have permission to access this document.", HttpStatus.FORBIDDEN),
+
+    BANK_ACCOUNT_NOT_FOUND("ERR_BANK_ACCOUNT_NOT_FOUND", "Bank account not found", "No bank account has been set up yet.", HttpStatus.NOT_FOUND),
+
+    PDF_GENERATION_FAILED("ERR_PDF_GENERATION_FAILED", "PDF generation failed", "Failed to generate the report PDF. Please try again.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    SETTING_NOT_FOUND("ERR_SETTING_NOT_FOUND", "Setting not found", "This system setting has not been initialized.", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String desc;

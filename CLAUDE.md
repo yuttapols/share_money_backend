@@ -135,7 +135,7 @@ constant ใน `ErrorCode` ห้าม hardcode string กระจายอ�
 ตัดสินใจแล้วว่าใช้ **Cloudinary** เป็น image/file storage แทน local disk / S3-MinIO ที่ระบุไว้ในเอกสาร
 `05-tech-stack.md` เดิม — ตอนเริ่ม Phase 3 ให้ทำตามนี้ ไม่ต้องออกแบบใหม่:
 
-**Dependency**: `com.cloudinary:cloudinary-http5` ใน `pom.xml`
+**Dependency**: `com.cloudinary:cloudinary-http45` ใน `pom.xml`
 **Config**: `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` เป็น env var เท่านั้น
 ห้าม hardcode ใน `application.yml`
 
@@ -189,7 +189,8 @@ StoredFile record(publicId, secureUrl, originalFilename, format, resourceType, b
   (`users.creditor_id`)
 - หนี้ 3 แบบ: `INSTALLMENT` (แบ่งจ่ายเป็นงวด), `OPEN` (กู้เปิด กรอกเอง ไม่คำนวณอัตโนมัติ), `FULL` (legacy
   จ่ายเต็มจำนวนครั้งเดียว)
-- สลิปโอนเงิน: เก็บล่าสุด 1 ใบต่อคู่ (debtor × creditor), อัปโหลดใหม่ replace ของเก่า, จำกัด `image/*` ≤ 1MB
+- สลิปโอนเงิน: เก็บล่าสุด **3 ใบต่อคู่** (debtor × creditor) — อัปโหลดใหม่เมื่อครบ 3 ใบแล้วจะลบใบเก่าสุดทิ้งอัตโนมัติ
+  (rolling window ไม่ใช่ overwrite แบบระบบเดิม), จำกัด `image/*` ≤ 1MB ต่อไฟล์
 - รายละเอียด business rule แต่ละ domain ดูที่ `01-requirements.md` (FR-1 ถึง FR-11), API contract เต็มที่
   `04-api-specification.md`, ตาราง DB ที่ `03-database-design.md`, validation ทุก field ที่
   `07-validation-rules.md`
@@ -219,7 +220,37 @@ StoredFile record(publicId, secureUrl, originalFilename, format, resourceType, b
 2. Debt Domain — debts/installments/open_loan_records, payment actions, denormalized totals
 3. File Storage, Slip, Documents, Reports — `FileStorageService` (Cloudinary — ดูหัวข้อ "File Storage —
    Cloudinary" ด้านบน), slip/document API, due report + PDF
-4. Admin, Operations, Release — installment choices, migration pipeline, hardening, deployment
+4. Admin, Operations, Release — installment choices ✅, docker-compose ✅, error mapping ✅, legacy data
+   migration ✅ (ดูหัวข้อ "Legacy Data Migration" ด้านล่าง — ทำแบบ one-time tool ธรรมดา ไม่ใช่ full
+   staging/dry-run/reconciliation pipeline ตาม `10-legacy-data-migration.md` เพราะข้อมูลจริงมีขนาดเล็ก
+   ระดับ personal use ~10 user), backup/restore runbook ⏸ (รอ environment deploy จริง)
+
+## Legacy Data Migration
+
+ข้อมูลจริงจากระบบเดิม (Google Apps Script) อยู่ใน 1 ไฟล์ Excel export เดียว — **มี sheet ปนที่ไม่เกี่ยวกับ
+Share Money เลย** (`Transactions`, `Categories`, `Budgets`, `Food`, `Wedding`) เป็น sheet จาก Google Apps
+Script ตัวอื่นที่ใช้ account เดียวกัน **ห้าม migrate sheet พวกนี้เด็ดขาด**
+
+Sheet ที่เกี่ยวข้องจริง: `Users`, `Settings` (installmentChoices), `Debts` (installments/open-records ฝังเป็น
+JSON string ใน cell เดียว ตรงกับที่ improvement backlog ในเอกสารเดิมคาดไว้), `Logins` — ส่วน `Slips` (7 ใบ)
+**ข้ามไปก่อนโดยตั้งใจ** เพราะไฟล์ยังอยู่บน Google Drive ไม่ใช่ Cloudinary ต้อง OAuth เข้าไปโหลดซึ่งไม่คุ้มกับ
+แค่ 8 debtor — ให้ debtor อัปโหลดสลิปใหม่ผ่านระบบใหม่เองถ้ายังต้องใช้
+
+**เครื่องมือ**: `com.sharemoney.migration.LegacyDataMigrationTool` — plain class มี `main()` ธรรมดา **ไม่ใช่**
+Spring bean/CommandLineRunner (ไม่ถูกรันตอน production app start แน่นอน) รันเองครั้งเดียวผ่าน IDE หรือ
+`mvn exec:java -Dexec.mainClass=com.sharemoney.migration.LegacyDataMigrationTool -Dexec.args="<path-to-xlsx>"`
+ใช้ `org.apache.poi:poi-ooxml` scope `provided` (compile ได้ แต่ไม่ติดไปกับ jar ที่ deploy จริง)
+
+- Password เดิมเป็น SHA-256+salt แปลงเป็น BCrypt ไม่ได้ (ตามที่ FR-11.6 เตือนไว้) — migrate user ทุกคนด้วย
+  temp password `123456` เหมือนกันหมด ให้ไปเปลี่ยนเองผ่าน `POST /api/auth/change-password`
+- ใช้ raw JDBC ตรง ๆ ไม่ผ่าน JPA/Spring context (เป็น one-time tool ไม่ต้องพึ่ง Spring boot ขึ้นมาทั้งระบบ)
+- ทำในทรานแซกชันเดียว (`connection.setAutoCommit(false)`) — error จุดไหนก็ rollback ทั้งหมด ไม่ทิ้งข้อมูลค้าง
+- Skip user ที่มี username ซ้ำอยู่แล้วในระบบ (รองรับ rerun โดยไม่ error ซ้ำ และจัดการ `admin` ที่ seed ไว้แล้ว
+  ชนกับ `admin` ในชีตต้นทางโดยอัตโนมัติ)
+- `installment_choices` ถูก update เป็นค่าจริงจากระบบเดิม (`2,3,4,5,6,9,10,12,15,18,24,30,48`) แทนค่า default
+  เดิมที่ seed ไว้ (`2,3,6,9,12`) เพราะพบว่ามีการใช้ 30 งวดจริงในข้อมูล
+- ตรวจสอบ parsing กับไฟล์จริงแล้วผ่านหมด (dry-run แยกนอก DB) มีจุดเดียวที่ต้องแก้: บาง debt ไม่มี `dueDate`
+  ในงวดแรก ต้อง fallback ไปใช้ `payDate` ก่อนแล้วค่อย fallback เป็น `createdAt` เป็นทางเลือกสุดท้าย
 
 ## Future Considerations (ยังไม่ทำตอนนี้ แต่ควรพิจารณาทีหลัง)
 

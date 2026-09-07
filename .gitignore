@@ -7,3 +7,5 @@ target/
 HELP.md
 .mvn/wrapper/maven-wrapper.jar
 application-local.yml
+.env
+backups/

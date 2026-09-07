@@ -48,8 +48,11 @@ public class User extends BaseEntity {
     @Column(length = 20)
     private String phone;
 
-    @Column(name = "avatar_key", length = 500)
-    private String avatarKey;
+    @Column(name = "avatar_public_id", length = 500)
+    private String avatarPublicId;
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
 
     @Column(name = "preferred_language", nullable = false, length = 5)
     private String preferredLanguage = "th";
