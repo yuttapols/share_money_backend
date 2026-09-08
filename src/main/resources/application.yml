@@ -9,7 +9,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/share_money?currentSchema=shmy}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:1234}
+    password: ${DB_PASSWORD:1931}
   jpa:
     open-in-view: false
     hibernate:
@@ -32,6 +32,9 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+  servlet:
+    context-path: /v1
   error:
     include-message: never
     include-binding-errors: never
@@ -61,3 +64,5 @@ app:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:fox6tyqd}
     api-key: ${CLOUDINARY_API_KEY:384291533371625}
     api-secret: ${CLOUDINARY_API_SECRET:TIvX7yFX0fVxjiRaLktUDbMVJgc}
+  login-log:
+    retention-days: ${LOGIN_LOG_RETENTION_DAYS:90}

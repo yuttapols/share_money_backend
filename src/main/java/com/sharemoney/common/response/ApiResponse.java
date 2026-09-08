@@ -1,5 +1,6 @@
 package com.sharemoney.common.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.sharemoney.common.error.ErrorCode;
 
 public record ApiResponse<T>(
@@ -7,7 +8,7 @@ public record ApiResponse<T>(
         String errorCode,
         String errorDesc,
         String displayMessage,
-        T data
+        @JsonInclude(JsonInclude.Include.ALWAYS) T data
 ) {
 
     private static final String STATUS_SUCCESS = "C";

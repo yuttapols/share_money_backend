@@ -30,8 +30,20 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+    # Published for local dev/smoke-testing convenience. In a real deployment,
+    # block external access to 8080 (firewall/security group) so Nginx is the
+    # only path in — otherwise clients can bypass Nginx and forge X-Forwarded-For.
     ports:
       - "8080:8080"
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
 
 volumes:
   postgres_data:

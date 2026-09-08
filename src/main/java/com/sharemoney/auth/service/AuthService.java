@@ -96,9 +96,9 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public MeResponse getCurrentUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        return new MeResponse(user.getUsername(), user.getRole(), user.getFullName());
+        return userRepository.findById(userId)
+                .map(user -> new MeResponse(user.getUsername(), user.getRole(), user.getFullName()))
+                .orElse(null);
     }
 
     @Transactional

@@ -35,7 +35,9 @@ public class ProfileService {
 
     @Transactional(readOnly = true)
     public ProfileResponse getCurrentProfile() {
-        return toResponse(currentUser());
+        return userRepository.findById(SecurityUtils.currentUserId())
+                .map(this::toResponse)
+                .orElse(null);
     }
 
     @Transactional

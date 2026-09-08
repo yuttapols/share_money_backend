@@ -74,7 +74,9 @@ public class DebtService {
 
     @Transactional(readOnly = true)
     public DebtDetailResponse getDetail(Long debtId) {
-        return DebtCalculator.toDetail(debtAccessService.loadViewable(debtId));
+        return debtAccessService.loadViewable(debtId)
+                .map(DebtCalculator::toDetail)
+                .orElse(null);
     }
 
     @Transactional

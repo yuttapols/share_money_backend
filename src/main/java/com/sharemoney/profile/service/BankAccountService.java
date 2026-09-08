@@ -5,6 +5,7 @@ import com.sharemoney.common.error.BusinessException;
 import com.sharemoney.common.error.ErrorCode;
 import com.sharemoney.common.security.SecurityUtils;
 import com.sharemoney.profile.dto.BankAccountResponse;
+import com.sharemoney.profile.dto.CreateBankAccountRequest;
 import com.sharemoney.profile.dto.UpdateBankAccountRequest;
 import com.sharemoney.profile.entity.BankAccount;
 import com.sharemoney.profile.repository.BankAccountRepository;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -24,34 +26,57 @@ public class BankAccountService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public BankAccountResponse getMine() {
+    public List<BankAccountResponse> list() {
         Long creditorId = resolveCreditorId();
-        return bankAccountRepository.findByCreditor_Id(creditorId)
+        if (creditorId == null) {
+            return List.of();
+        }
+        return bankAccountRepository.findAllByCreditor_IdOrderByIdAsc(creditorId).stream()
                 .map(this::toResponse)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BANK_ACCOUNT_NOT_FOUND));
+                .toList();
     }
 
     @Transactional
-    public BankAccountResponse update(UpdateBankAccountRequest request) {
-        Long creditorId = SecurityUtils.currentUserId();
-        BankAccount account = bankAccountRepository.findByCreditor_Id(creditorId)
-                .orElseGet(() -> newAccountFor(creditorId));
+    public BankAccountResponse create(CreateBankAccountRequest request) {
+        User creditor = userRepository.findById(SecurityUtils.currentUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        BankAccount account = new BankAccount();
+        account.setCreditor(creditor);
+        account.setBankName(request.bankName());
+        account.setAccountNo(request.accountNo());
+        account.setAccountName(request.accountName());
+        account.setPaymentNote(request.paymentNote());
+        bankAccountRepository.save(account);
+
+        return toResponse(account);
+    }
+
+    @Transactional
+    public BankAccountResponse update(Long id, UpdateBankAccountRequest request) {
+        BankAccount account = loadOwned(id);
 
         account.setBankName(request.bankName());
         account.setAccountNo(request.accountNo());
         account.setAccountName(request.accountName());
         account.setPaymentNote(request.paymentNote());
         account.setUpdatedAt(Instant.now());
-        bankAccountRepository.save(account);
 
         return toResponse(account);
     }
 
-    private BankAccount newAccountFor(Long creditorId) {
-        User creditor = userRepository.findById(creditorId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        BankAccount account = new BankAccount();
-        account.setCreditor(creditor);
+    @Transactional
+    public void delete(Long id) {
+        BankAccount account = loadOwned(id);
+        bankAccountRepository.delete(account);
+    }
+
+    private BankAccount loadOwned(Long id) {
+        BankAccount account = bankAccountRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BANK_ACCOUNT_NOT_FOUND));
+        if (!account.getCreditor().getId().equals(SecurityUtils.currentUserId())) {
+            throw new BusinessException(ErrorCode.BANK_ACCOUNT_NOT_OWNED);
+        }
         return account;
     }
 
@@ -61,14 +86,11 @@ public class BankAccountService {
         }
         User debtor = userRepository.findById(SecurityUtils.currentUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (debtor.getCreditor() == null) {
-            throw new BusinessException(ErrorCode.BANK_ACCOUNT_NOT_FOUND);
-        }
-        return debtor.getCreditor().getId();
+        return debtor.getCreditor() == null ? null : debtor.getCreditor().getId();
     }
 
     private BankAccountResponse toResponse(BankAccount account) {
-        return new BankAccountResponse(account.getBankName(), account.getAccountNo(),
+        return new BankAccountResponse(account.getId(), account.getBankName(), account.getAccountNo(),
                 account.getAccountName(), account.getPaymentNote());
     }
 }

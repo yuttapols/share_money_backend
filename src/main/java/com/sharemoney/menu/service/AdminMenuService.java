@@ -77,6 +77,7 @@ public class AdminMenuService {
     public MenuPermissionResponse updatePermissions(Long id, MenuPermissionRequest request) {
         MenuItem item = getMenuItemOrThrow(id);
         menuPermissionRepository.deleteByMenuItem_Id(id);
+        menuPermissionRepository.flush();
         savePermissions(item, request.roles());
         return new MenuPermissionResponse(id, request.roles());
     }

@@ -13,7 +13,6 @@ import com.sharemoney.common.security.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,7 +28,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        LoginResponse response = authService.login(request, resolveClientIp(httpRequest));
+        LoginResponse response = authService.login(request, httpRequest.getRemoteAddr());
         return ApiResponse.success(response, "Login successful.");
     }
 
@@ -42,7 +41,7 @@ public class AuthController {
     public ApiResponse<Void> logout(@RequestBody(required = false) RefreshRequest request, HttpServletRequest httpRequest) {
         UserPrincipal principal = SecurityUtils.currentUser();
         String refreshToken = request == null ? null : request.refreshToken();
-        authService.logout(refreshToken, principal.getUsername(), principal.getRole(), resolveClientIp(httpRequest));
+        authService.logout(refreshToken, principal.getUsername(), principal.getRole(), httpRequest.getRemoteAddr());
         return ApiResponse.success(null, "Logout successful.");
     }
 
@@ -55,13 +54,5 @@ public class AuthController {
     public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(SecurityUtils.currentUserId(), request);
         return ApiResponse.success(null, "Password changed successfully.");
-    }
-
-    private String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwarded)) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 }

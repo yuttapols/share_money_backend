@@ -9,19 +9,19 @@ VALUES (1, NULL, 'menu.dashboard', 'dashboard', '/dashboard', 0),
        (8, 6, 'menu.admin.installments', 'tune', '/admin/installment-choices', 1),
        (9, 6, 'menu.admin.logs', 'history', '/admin/login-logs', 2),
        (10, 6, 'menu.admin.creditors', 'supervisor_account', '/admin/creditors', 3),
-       (11, NULL, 'menu.profile', 'person', '/profile', 10);
+       (13, NULL, 'menu.documentUpload', 'upload_file', '/documents/upload', 6);
 
 SELECT setval(pg_get_serial_sequence('menu_items', 'id'), (SELECT max(id) FROM menu_items));
 
 INSERT INTO menu_permissions (menu_item_id, role)
 VALUES (1, 'ADMIN'), (1, 'CREDITOR'), (1, 'DEBTOR'),
        (2, 'ADMIN'), (2, 'CREDITOR'), (2, 'DEBTOR'),
-       (3, 'ADMIN'), (3, 'CREDITOR'),
-       (4, 'ADMIN'), (4, 'CREDITOR'),
+       (3, 'CREDITOR'),
+       (4, 'CREDITOR'), (4, 'DEBTOR'),
        (5, 'ADMIN'), (5, 'CREDITOR'), (5, 'DEBTOR'),
        (6, 'ADMIN'),
        (7, 'ADMIN'),
        (8, 'ADMIN'),
        (9, 'ADMIN'),
        (10, 'ADMIN'),
-       (11, 'ADMIN'), (11, 'CREDITOR'), (11, 'DEBTOR');
+       (13, 'CREDITOR');

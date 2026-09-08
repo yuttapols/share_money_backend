@@ -84,10 +84,13 @@ public class SlipService {
     public List<SlipResponse> list(String debtorUsername, String creditorUsername) {
         User debtor = userRepository.findByUsernameIgnoreCase(debtorUsername)
                 .filter(user -> user.getRole() == UserRole.DEBTOR)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElse(null);
         User creditor = userRepository.findByUsernameIgnoreCase(creditorUsername)
                 .filter(user -> user.getRole() == UserRole.CREDITOR)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElse(null);
+        if (debtor == null || creditor == null) {
+            return List.of();
+        }
 
         assertViewable(debtor.getId(), creditor.getId());
 

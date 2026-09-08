@@ -45,7 +45,8 @@ public enum ErrorCode {
     DOCUMENT_NOT_FOUND("ERR_DOCUMENT_NOT_FOUND", "Document not found", "The requested document was not found.", HttpStatus.NOT_FOUND),
     DOCUMENT_NOT_OWNED("ERR_DOCUMENT_NOT_OWNED", "Document does not belong to this creditor", "You do not have permission to access this document.", HttpStatus.FORBIDDEN),
 
-    BANK_ACCOUNT_NOT_FOUND("ERR_BANK_ACCOUNT_NOT_FOUND", "Bank account not found", "No bank account has been set up yet.", HttpStatus.NOT_FOUND),
+    BANK_ACCOUNT_NOT_FOUND("ERR_BANK_ACCOUNT_NOT_FOUND", "Bank account not found", "The requested bank account was not found.", HttpStatus.NOT_FOUND),
+    BANK_ACCOUNT_NOT_OWNED("ERR_BANK_ACCOUNT_NOT_OWNED", "Bank account does not belong to this creditor", "You do not have permission to manage this bank account.", HttpStatus.FORBIDDEN),
 
     PDF_GENERATION_FAILED("ERR_PDF_GENERATION_FAILED", "PDF generation failed", "Failed to generate the report PDF. Please try again.", HttpStatus.INTERNAL_SERVER_ERROR),
 

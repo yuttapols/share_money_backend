@@ -10,6 +10,8 @@ import com.sharemoney.debt.repository.DebtRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class DebtAccessService {
@@ -27,9 +29,11 @@ public class DebtAccessService {
         return debt;
     }
 
-    public Debt loadViewable(Long debtId) {
-        Debt debt = debtRepository.findDetailById(debtId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DEBT_NOT_FOUND));
+    public Optional<Debt> loadViewable(Long debtId) {
+        Debt debt = debtRepository.findDetailById(debtId).orElse(null);
+        if (debt == null) {
+            return Optional.empty();
+        }
 
         UserPrincipal current = SecurityUtils.currentUser();
         boolean viewableByCreditor = current.getRole() == UserRole.CREDITOR && debt.getCreditor().getId().equals(current.getId());
@@ -38,6 +42,6 @@ public class DebtAccessService {
         if (!viewableByCreditor && !viewableByDebtor) {
             throw new BusinessException(ErrorCode.DEBT_NOT_OWNED);
         }
-        return debt;
+        return Optional.of(debt);
     }
 }

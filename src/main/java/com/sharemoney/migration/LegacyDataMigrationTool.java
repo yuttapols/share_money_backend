@@ -98,7 +98,9 @@ public final class LegacyDataMigrationTool {
                 continue;
             }
 
-            if (userExists(username)) {
+            Long existingId = findUserId(username);
+            if (existingId != null) {
+                userIdByUsername.put(username, existingId);
                 System.out.println("Skip user (already exists): " + username);
                 continue;
             }
@@ -348,12 +350,12 @@ public final class LegacyDataMigrationTool {
         return createdAt != null ? createdAt.toLocalDate() : LocalDate.now();
     }
 
-    private boolean userExists(String username) throws Exception {
+    private Long findUserId(String username) throws Exception {
         try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT 1 FROM users WHERE lower(username) = lower(?)")) {
+                "SELECT id FROM users WHERE lower(username) = lower(?)")) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
+                return rs.next() ? rs.getLong(1) : null;
             }
         }
     }

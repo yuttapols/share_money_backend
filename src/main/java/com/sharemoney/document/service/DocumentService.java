@@ -47,7 +47,7 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public DocumentResponse getDownloadInfo(Long documentId) {
         Document document = getViewable(documentId);
-        return toResponse(document);
+        return document == null ? null : toResponse(document);
     }
 
     @Transactional
@@ -113,8 +113,10 @@ public class DocumentService {
     }
 
     private Document getViewable(Long documentId) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+        Document document = documentRepository.findById(documentId).orElse(null);
+        if (document == null) {
+            return null;
+        }
 
         boolean isTemplate = document.getOwnerCreditor() == null;
         boolean ownedByCreditor = document.getOwnerCreditor() != null
