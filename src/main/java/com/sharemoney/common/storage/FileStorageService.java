@@ -6,7 +6,7 @@ public interface FileStorageService {
 
     StoredFile upload(MultipartFile file, String folder, boolean authenticated);
 
-    void delete(String publicId, String resourceType);
+    void delete(String publicId, String resourceType, boolean authenticated);
 
     String generateSignedUrl(String publicId, String resourceType);
 

@@ -29,7 +29,7 @@ public class LoginLog {
     @Column(nullable = false, length = 20)
     private String role;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 80)
     private String action;
 
     @Column(name = "ip_address", length = 45)

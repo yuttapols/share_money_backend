@@ -11,6 +11,8 @@ public interface SlipRepository extends JpaRepository<Slip, Long> {
 
     List<Slip> findByDebtor_IdAndCreditor_IdOrderByUploadedAtDesc(Long debtorId, Long creditorId);
 
+    List<Slip> findByDebtor_Id(Long debtorId);
+
     @Query("select distinct s.debtor.username from Slip s where s.creditor.id = :creditorId")
     List<String> findDebtorUsernamesWithSlipByCreditor(@Param("creditorId") Long creditorId);
 

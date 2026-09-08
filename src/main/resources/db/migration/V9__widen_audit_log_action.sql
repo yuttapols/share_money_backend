@@ -1,0 +1,1 @@
+ALTER TABLE login_logs ALTER COLUMN action TYPE VARCHAR(80);

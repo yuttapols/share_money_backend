@@ -1,5 +1,6 @@
 package com.sharemoney.slip.service;
 
+import com.sharemoney.common.audit.AuditActions;
 import com.sharemoney.common.audit.AuditLogService;
 import com.sharemoney.common.domain.UserRole;
 import com.sharemoney.common.error.BusinessException;
@@ -8,6 +9,7 @@ import com.sharemoney.common.security.SecurityUtils;
 import com.sharemoney.common.storage.FileStorageService;
 import com.sharemoney.common.storage.FileValidator;
 import com.sharemoney.common.storage.StoredFile;
+import com.sharemoney.common.storage.TransactionalFileCleanup;
 import com.sharemoney.slip.dto.DebtorsWithSlipResponse;
 import com.sharemoney.slip.dto.SlipResponse;
 import com.sharemoney.slip.entity.Slip;
@@ -28,11 +30,11 @@ public class SlipService {
     private static final long MAX_SLIP_BYTES = 1_048_576;
     private static final int MAX_SLIPS_PER_PAIR = 3;
     private static final String FOLDER = "sharemoney/slips";
-    private static final String UPLOAD_SLIP_ACTION_PREFIX = "UPLOAD_SLIP -> ";
 
     private final SlipRepository slipRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final TransactionalFileCleanup fileCleanup;
     private final AuditLogService auditLogService;
 
     @Transactional
@@ -54,11 +56,12 @@ public class SlipService {
         List<Slip> existing = slipRepository.findByDebtor_IdAndCreditor_IdOrderByUploadedAtDesc(debtor.getId(), creditor.getId());
         if (existing.size() >= MAX_SLIPS_PER_PAIR) {
             Slip oldest = existing.get(existing.size() - 1);
-            fileStorageService.delete(oldest.getPublicId(), oldest.getResourceType());
             slipRepository.delete(oldest);
+            fileCleanup.deleteAfterCommit(oldest.getPublicId(), oldest.getResourceType(), true);
         }
 
         StoredFile stored = fileStorageService.upload(file, FOLDER, true);
+        fileCleanup.deleteOnRollback(stored.publicId(), stored.resourceType(), true);
 
         Slip slip = new Slip();
         slip.setDebtor(debtor);
@@ -71,7 +74,8 @@ public class SlipService {
         slip.setBytes(stored.bytes());
         slipRepository.save(slip);
 
-        auditLogService.record(debtor.getUsername(), UserRole.DEBTOR, UPLOAD_SLIP_ACTION_PREFIX + creditor.getUsername(), null);
+        auditLogService.record(debtor.getUsername(), UserRole.DEBTOR,
+                AuditActions.withTarget(AuditActions.UPLOAD_SLIP, creditor.getUsername()), null);
 
         return toResponse(slip);
     }
@@ -110,8 +114,15 @@ public class SlipService {
             throw new BusinessException(ErrorCode.SLIP_NOT_OWNED);
         }
 
-        fileStorageService.delete(slip.getPublicId(), slip.getResourceType());
+        String debtorUsername = slip.getDebtor().getUsername();
+        String publicId = slip.getPublicId();
+        String resourceType = slip.getResourceType();
+
         slipRepository.delete(slip);
+        fileCleanup.deleteAfterCommit(publicId, resourceType, true);
+
+        auditLogService.record(SecurityUtils.currentUsername(), SecurityUtils.currentRole(),
+                AuditActions.withTarget(AuditActions.DELETE_SLIP, debtorUsername), null);
     }
 
     private void assertViewable(Long debtorId, Long creditorId) {

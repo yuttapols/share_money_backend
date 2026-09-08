@@ -48,10 +48,11 @@ public class DebtService {
     public List<DebtSummaryResponse> list(String debtorUsername, String search) {
         var current = SecurityUtils.currentUser();
         String pattern = toSearchPattern(search);
+        String debtorFilter = StringUtils.hasText(debtorUsername) ? debtorUsername.toLowerCase() : null;
 
         List<Debt> debts = current.getRole() == UserRole.DEBTOR
                 ? debtRepository.findAllForDebtor(current.getId(), pattern)
-                : debtRepository.findAllForCreditor(current.getId(), debtorUsername, pattern);
+                : debtRepository.findAllForCreditor(current.getId(), debtorFilter, pattern);
 
         if (debts.isEmpty()) {
             return List.of();

@@ -1,11 +1,14 @@
 package com.sharemoney.profile.service;
 
+import com.sharemoney.common.audit.AuditActions;
+import com.sharemoney.common.audit.AuditLogService;
 import com.sharemoney.common.error.BusinessException;
 import com.sharemoney.common.error.ErrorCode;
 import com.sharemoney.common.security.SecurityUtils;
 import com.sharemoney.common.storage.FileStorageService;
 import com.sharemoney.common.storage.FileValidator;
 import com.sharemoney.common.storage.StoredFile;
+import com.sharemoney.common.storage.TransactionalFileCleanup;
 import com.sharemoney.profile.dto.AvatarResponse;
 import com.sharemoney.profile.dto.ProfileResponse;
 import com.sharemoney.profile.dto.UpdateProfileRequest;
@@ -27,6 +30,8 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final TransactionalFileCleanup fileCleanup;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public ProfileResponse getCurrentProfile() {
@@ -46,14 +51,19 @@ public class ProfileService {
     public AvatarResponse uploadAvatar(MultipartFile file) {
         FileValidator.assertImage(file, MAX_AVATAR_BYTES);
         User user = currentUser();
-
-        if (StringUtils.hasText(user.getAvatarPublicId())) {
-            fileStorageService.delete(user.getAvatarPublicId(), AVATAR_RESOURCE_TYPE);
-        }
+        String previousPublicId = user.getAvatarPublicId();
 
         StoredFile stored = fileStorageService.upload(file, FOLDER, false);
+        fileCleanup.deleteOnRollback(stored.publicId(), AVATAR_RESOURCE_TYPE, false);
+
         user.setAvatarPublicId(stored.publicId());
         user.setAvatarUrl(stored.secureUrl());
+
+        if (StringUtils.hasText(previousPublicId)) {
+            fileCleanup.deleteAfterCommit(previousPublicId, AVATAR_RESOURCE_TYPE, false);
+        }
+
+        auditLogService.record(user.getUsername(), user.getRole(), AuditActions.UPLOAD_AVATAR, null);
 
         return new AvatarResponse(user.getAvatarUrl());
     }
@@ -61,11 +71,14 @@ public class ProfileService {
     @Transactional
     public void deleteAvatar() {
         User user = currentUser();
-        if (StringUtils.hasText(user.getAvatarPublicId())) {
-            fileStorageService.delete(user.getAvatarPublicId(), AVATAR_RESOURCE_TYPE);
-        }
+        String publicId = user.getAvatarPublicId();
         user.setAvatarPublicId(null);
         user.setAvatarUrl(null);
+
+        if (StringUtils.hasText(publicId)) {
+            fileCleanup.deleteAfterCommit(publicId, AVATAR_RESOURCE_TYPE, false);
+            auditLogService.record(user.getUsername(), user.getRole(), AuditActions.DELETE_AVATAR, null);
+        }
     }
 
     private User currentUser() {

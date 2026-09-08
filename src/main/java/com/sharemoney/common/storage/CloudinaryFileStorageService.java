@@ -42,9 +42,17 @@ public class CloudinaryFileStorageService implements FileStorageService {
     }
 
     @Override
-    public void delete(String publicId, String resourceType) {
+    public void delete(String publicId, String resourceType, boolean authenticated) {
         try {
-            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", resourceType));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap(
+                    "resource_type", resourceType,
+                    "type", authenticated ? "authenticated" : "upload",
+                    "invalidate", true));
+            Object status = result.get("result");
+            if (!"ok".equals(status) && !"not found".equals(status)) {
+                throw new BusinessException(ErrorCode.FILE_DELETE_FAILED);
+            }
         } catch (IOException e) {
             throw new BusinessException(ErrorCode.FILE_DELETE_FAILED);
         }

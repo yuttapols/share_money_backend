@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
+    List<Document> findByDebtor_Id(Long debtorId);
+
     @Query("""
             select d from Document d
             left join fetch d.ownerCreditor

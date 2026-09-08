@@ -1,5 +1,7 @@
 package com.sharemoney.document.service;
 
+import com.sharemoney.common.audit.AuditActions;
+import com.sharemoney.common.audit.AuditLogService;
 import com.sharemoney.common.domain.UserRole;
 import com.sharemoney.common.error.BusinessException;
 import com.sharemoney.common.error.ErrorCode;
@@ -7,6 +9,7 @@ import com.sharemoney.common.security.SecurityUtils;
 import com.sharemoney.common.storage.FileStorageService;
 import com.sharemoney.common.storage.FileValidator;
 import com.sharemoney.common.storage.StoredFile;
+import com.sharemoney.common.storage.TransactionalFileCleanup;
 import com.sharemoney.document.dto.DocumentResponse;
 import com.sharemoney.document.entity.Document;
 import com.sharemoney.document.repository.DocumentRepository;
@@ -30,6 +33,8 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final TransactionalFileCleanup fileCleanup;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public List<DocumentResponse> list() {
@@ -65,6 +70,7 @@ public class DocumentService {
         }
 
         StoredFile stored = fileStorageService.upload(file, FOLDER, true);
+        fileCleanup.deleteOnRollback(stored.publicId(), stored.resourceType(), true);
 
         Document document = new Document();
         document.setOwnerCreditor(SecurityUtils.isAdmin() ? null : uploader);
@@ -78,6 +84,9 @@ public class DocumentService {
         document.setBytes(stored.bytes());
         document.setUploadedBy(uploader);
         documentRepository.save(document);
+
+        auditLogService.record(uploader.getUsername(), SecurityUtils.currentRole(),
+                AuditActions.UPLOAD_DOCUMENT, null);
 
         return toResponse(document);
     }
@@ -93,8 +102,14 @@ public class DocumentService {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_OWNED);
         }
 
-        fileStorageService.delete(document.getPublicId(), document.getResourceType());
+        String publicId = document.getPublicId();
+        String resourceType = document.getResourceType();
+
         documentRepository.delete(document);
+        fileCleanup.deleteAfterCommit(publicId, resourceType, true);
+
+        auditLogService.record(SecurityUtils.currentUsername(), SecurityUtils.currentRole(),
+                AuditActions.DELETE_DOCUMENT, null);
     }
 
     private Document getViewable(Long documentId) {

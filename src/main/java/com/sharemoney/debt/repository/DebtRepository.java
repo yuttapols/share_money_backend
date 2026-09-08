@@ -2,6 +2,7 @@ package com.sharemoney.debt.repository;
 
 import com.sharemoney.debt.entity.Debt;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,12 +11,16 @@ import java.util.Optional;
 
 public interface DebtRepository extends JpaRepository<Debt, Long> {
 
+    @Modifying
+    @Query("delete from Debt d where d.debtor.id = :debtorId")
+    int deleteByDebtorId(@Param("debtorId") Long debtorId);
+
     @Query("""
             select d from Debt d
             join fetch d.creditor
             join fetch d.debtor
             where d.creditor.id = :creditorId
-              and (:debtorUsername is null or lower(d.debtor.username) = lower(:debtorUsername))
+              and (:debtorUsername is null or lower(d.debtor.username) = :debtorUsername)
               and (:searchPattern is null
                    or lower(d.title) like :searchPattern
                    or lower(d.debtor.fullName) like :searchPattern

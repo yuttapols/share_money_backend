@@ -1,9 +1,16 @@
 package com.sharemoney.user.service;
 
+import com.sharemoney.auth.repository.RefreshTokenRepository;
 import com.sharemoney.common.domain.UserRole;
 import com.sharemoney.common.error.BusinessException;
 import com.sharemoney.common.error.ErrorCode;
 import com.sharemoney.common.security.SecurityUtils;
+import com.sharemoney.common.storage.TransactionalFileCleanup;
+import com.sharemoney.debt.repository.DebtRepository;
+import com.sharemoney.document.entity.Document;
+import com.sharemoney.document.repository.DocumentRepository;
+import com.sharemoney.slip.entity.Slip;
+import com.sharemoney.slip.repository.SlipRepository;
 import com.sharemoney.user.dto.CreateDebtorRequest;
 import com.sharemoney.user.dto.DebtorResponse;
 import com.sharemoney.user.dto.DeleteDebtorResponse;
@@ -26,6 +33,11 @@ public class DebtorService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final SlipRepository slipRepository;
+    private final DocumentRepository documentRepository;
+    private final DebtRepository debtRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final TransactionalFileCleanup fileCleanup;
 
     @Transactional
     public DebtorResponse create(CreateDebtorRequest request) {
@@ -86,8 +98,21 @@ public class DebtorService {
     @Transactional
     public DeleteDebtorResponse delete(String username) {
         User debtor = getOwnedDebtor(username);
+        Long debtorId = debtor.getId();
+
+        List<Slip> slips = slipRepository.findByDebtor_Id(debtorId);
+        slips.forEach(slip -> fileCleanup.deleteAfterCommit(slip.getPublicId(), slip.getResourceType(), true));
+        slipRepository.deleteAllInBatch(slips);
+
+        List<Document> documents = documentRepository.findByDebtor_Id(debtorId);
+        documents.forEach(doc -> fileCleanup.deleteAfterCommit(doc.getPublicId(), doc.getResourceType(), true));
+        documentRepository.deleteAllInBatch(documents);
+
+        long deletedDebts = debtRepository.deleteByDebtorId(debtorId);
+        refreshTokenRepository.deleteByUserId(debtorId);
+
         userRepository.delete(debtor);
-        return new DeleteDebtorResponse(true, 0L);
+        return new DeleteDebtorResponse(true, deletedDebts);
     }
 
     private User getOwnedDebtor(String username) {
