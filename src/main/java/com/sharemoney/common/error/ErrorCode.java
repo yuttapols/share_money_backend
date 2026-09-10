@@ -50,7 +50,9 @@ public enum ErrorCode {
 
     PDF_GENERATION_FAILED("ERR_PDF_GENERATION_FAILED", "PDF generation failed", "Failed to generate the report PDF. Please try again.", HttpStatus.INTERNAL_SERVER_ERROR),
 
-    SETTING_NOT_FOUND("ERR_SETTING_NOT_FOUND", "Setting not found", "This system setting has not been initialized.", HttpStatus.NOT_FOUND);
+    SETTING_NOT_FOUND("ERR_SETTING_NOT_FOUND", "Setting not found", "This system setting has not been initialized.", HttpStatus.NOT_FOUND),
+
+    LEGACY_IMPORT_FAILED("ERR_LEGACY_IMPORT_FAILED", "Legacy data import failed", "Import failed. Please check the file and try again.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String desc;

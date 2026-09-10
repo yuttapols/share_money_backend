@@ -42,6 +42,23 @@ public final class LegacyDataMigrationTool {
         this.workbook = workbook;
     }
 
+    public static LegacyDataMigrationTool of(Connection connection, Workbook workbook) {
+        return new LegacyDataMigrationTool(connection, workbook);
+    }
+
+    public void run() throws Exception {
+        try {
+            migrateUsers();
+            migrateInstallmentChoices();
+            migrateDebts();
+            migrateLoginLogs();
+            connection.commit();
+        } catch (Exception e) {
+            connection.rollback();
+            throw e;
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.err.println("Usage: LegacyDataMigrationTool <xlsx-path> [dbUrl] [dbUser] [dbPassword]");
@@ -58,19 +75,12 @@ public final class LegacyDataMigrationTool {
              Connection connection = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
 
             connection.setAutoCommit(false);
-            LegacyDataMigrationTool tool = new LegacyDataMigrationTool(connection, workbook);
-
             try {
-                tool.migrateUsers();
-                tool.migrateInstallmentChoices();
-                tool.migrateDebts();
-                tool.migrateLoginLogs();
-                connection.commit();
+                of(connection, workbook).run();
                 System.out.println("Migration committed successfully.");
                 System.out.println("All migrated users share temporary password: " + TEMP_PASSWORD);
                 System.out.println("Ask each user to change it via POST /api/auth/change-password.");
             } catch (Exception e) {
-                connection.rollback();
                 System.err.println("Migration failed, rolled back. Cause: " + e.getMessage());
                 throw e;
             }

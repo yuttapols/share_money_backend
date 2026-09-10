@@ -237,9 +237,20 @@ JSON string ใน cell เดียว ตรงกับที่ improvement 
 แค่ 8 debtor — ให้ debtor อัปโหลดสลิปใหม่ผ่านระบบใหม่เองถ้ายังต้องใช้
 
 **เครื่องมือ**: `com.sharemoney.migration.LegacyDataMigrationTool` — plain class มี `main()` ธรรมดา **ไม่ใช่**
-Spring bean/CommandLineRunner (ไม่ถูกรันตอน production app start แน่นอน) รันเองครั้งเดียวผ่าน IDE หรือ
-`mvn exec:java -Dexec.mainClass=com.sharemoney.migration.LegacyDataMigrationTool -Dexec.args="<path-to-xlsx>"`
-ใช้ `org.apache.poi:poi-ooxml` scope `provided` (compile ได้ แต่ไม่ติดไปกับ jar ที่ deploy จริง)
+Spring bean/CommandLineRunner (ไม่ถูกรันตอน production app start แน่นอน) core logic (`migrateUsers`/
+`migrateInstallmentChoices`/`migrateDebts`/`migrateLoginLogs` ทั้งหมดในทรานแซกชันเดียวผ่าน `run()`) ใช้ร่วมกัน
+2 ทาง:
+
+1. **CLI แบบเดิม** — รันเองครั้งเดียวผ่าน IDE หรือ
+   `mvn exec:java -Dexec.mainClass=com.sharemoney.migration.LegacyDataMigrationTool -Dexec.args="<path-to-xlsx>"`
+2. **เมนู Import ในแอป** (`POST /api/admin/migration/legacy-import`, `ADMIN` เท่านั้น, `admin/controller/MigrationController.java`
+   + `admin/service/LegacyDataImportService.java`) — ใช้ตอน deploy ขึ้น environment ใหม่ (เช่น SIT) ที่ยังไม่อยาก
+   SSH/exec เข้าไปรัน CLI เอง อัปโหลด `.xlsx` ผ่าน UI แล้ว backend เปิด `Connection` จาก `DataSource` เอง (ไม่ผ่าน
+   JPA) มาป้อนให้ `LegacyDataMigrationTool.of(connection, workbook).run()` เดียวกันกับ CLI
+
+เพราะมีทาง HTTP endpoint แล้ว `org.apache.poi:poi-ooxml` เปลี่ยนจาก scope `provided` เป็น scope ปกติ (compile,
+ใช้ default ของ Maven) ใน `pom.xml` แล้ว — ต้องติดไปกับ jar ที่ deploy จริงเพื่อให้ endpoint นี้ทำงานได้ (ต่างจาก
+เดิมที่ตั้งใจกันไม่ให้ dependency นี้ตามไปด้วย)
 
 - Password เดิมเป็น SHA-256+salt แปลงเป็น BCrypt ไม่ได้ (ตามที่ FR-11.6 เตือนไว้) — migrate user ทุกคนด้วย
   temp password `123456` เหมือนกันหมด ให้ไปเปลี่ยนเองผ่าน `POST /api/auth/change-password`

@@ -11,4 +11,6 @@ RUN addgroup -S spring && adduser -S spring -G spring
 USER spring
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+    CMD wget -q -O /dev/null http://localhost:8080/v1/actuator/health || exit 1
 ENTRYPOINT ["java", "-jar", "app.jar"]
