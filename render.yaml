@@ -3,7 +3,7 @@ services:
     name: share-money-backend
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter
+    plan: free
     healthCheckPath: /v1/actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
