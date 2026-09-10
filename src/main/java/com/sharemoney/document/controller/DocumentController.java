@@ -20,23 +20,25 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/documents")
-@PreAuthorize("hasAnyRole('ADMIN','CREDITOR')")
 @RequiredArgsConstructor
 public class DocumentController {
 
     private final DocumentService documentService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','CREDITOR','DEBTOR')")
     public ApiResponse<List<DocumentResponse>> list() {
         return ApiResponse.success(documentService.list());
     }
 
     @GetMapping("/{id}/download")
+    @PreAuthorize("hasAnyRole('ADMIN','CREDITOR','DEBTOR')")
     public ApiResponse<DocumentResponse> download(@PathVariable Long id) {
         return ApiResponse.success(documentService.getDownloadInfo(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','CREDITOR')")
     public ResponseEntity<ApiResponse<DocumentResponse>> upload(@RequestPart String title,
                                                                   @RequestPart(required = false) String debtorUsername,
                                                                   @RequestPart MultipartFile file) {
@@ -46,6 +48,7 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','CREDITOR')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         documentService.delete(id);
         return ApiResponse.success(null, "Document has been deleted successfully.");

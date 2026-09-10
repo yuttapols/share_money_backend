@@ -24,6 +24,17 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             select d from Document d
             left join fetch d.ownerCreditor
             left join fetch d.debtor
+            where d.ownerCreditor is null
+               or d.debtor.id = :debtorId
+               or (d.debtor is null and d.ownerCreditor.id = :creditorId)
+            order by d.uploadedAt desc
+            """)
+    List<Document> findVisibleToDebtor(@Param("debtorId") Long debtorId, @Param("creditorId") Long creditorId);
+
+    @Query("""
+            select d from Document d
+            left join fetch d.ownerCreditor
+            left join fetch d.debtor
             order by d.uploadedAt desc
             """)
     List<Document> findAllWithOwners();

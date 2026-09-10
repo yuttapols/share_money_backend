@@ -38,9 +38,15 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public List<DocumentResponse> list() {
-        List<Document> documents = SecurityUtils.isAdmin()
-                ? documentRepository.findAllWithOwners()
-                : documentRepository.findVisibleToCreditor(SecurityUtils.currentUserId());
+        List<Document> documents;
+        if (SecurityUtils.isAdmin()) {
+            documents = documentRepository.findAllWithOwners();
+        } else if (SecurityUtils.currentRole() == UserRole.DEBTOR) {
+            Long debtorId = SecurityUtils.currentUserId();
+            documents = documentRepository.findVisibleToDebtor(debtorId, resolveOwnCreditorId(debtorId));
+        } else {
+            documents = documentRepository.findVisibleToCreditor(SecurityUtils.currentUserId());
+        }
         return documents.stream().map(this::toResponse).toList();
     }
 
@@ -121,11 +127,24 @@ public class DocumentService {
         boolean isTemplate = document.getOwnerCreditor() == null;
         boolean ownedByCreditor = document.getOwnerCreditor() != null
                 && document.getOwnerCreditor().getId().equals(SecurityUtils.currentUserId());
+        boolean assignedToDebtor = document.getDebtor() != null
+                && document.getDebtor().getId().equals(SecurityUtils.currentUserId());
+        boolean sharedByOwnCreditor = SecurityUtils.currentRole() == UserRole.DEBTOR
+                && document.getDebtor() == null
+                && document.getOwnerCreditor() != null
+                && document.getOwnerCreditor().getId().equals(resolveOwnCreditorId(SecurityUtils.currentUserId()));
 
-        if (!SecurityUtils.isAdmin() && !isTemplate && !ownedByCreditor) {
+        boolean viewable = SecurityUtils.isAdmin() || isTemplate || ownedByCreditor || assignedToDebtor || sharedByOwnCreditor;
+        if (!viewable) {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_OWNED);
         }
         return document;
+    }
+
+    private Long resolveOwnCreditorId(Long debtorId) {
+        User debtor = userRepository.findById(debtorId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return debtor.getCreditor() == null ? null : debtor.getCreditor().getId();
     }
 
     private DocumentResponse toResponse(Document document) {
