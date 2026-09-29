@@ -22,6 +22,7 @@ public record DebtSummaryResponse(
         DebtStatus status,
         BigDecimal dueAmount,
         String dueLabel,
+        Boolean currentPeriodPaid,
         BigDecimal interest,
         Integer sortOrder,
         Instant createdAt

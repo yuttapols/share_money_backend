@@ -1,5 +1,6 @@
 package com.sharemoney.debt.service;
 
+import com.sharemoney.common.period.BillingPeriod;
 import com.sharemoney.debt.dto.DebtDetailResponse;
 import com.sharemoney.debt.dto.DebtSummaryResponse;
 import com.sharemoney.debt.dto.InstallmentResponse;
@@ -120,7 +121,8 @@ public final class DebtCalculator {
                 debt.getTitle(), debt.getDescription(), debt.getMethod(),
                 debt.getPrincipalAmount(), debt.getInstallmentCount(), (int) paidCount,
                 debt.getPaidAmount(), lastPayDate, debt.getStatus(),
-                dueAmount, dueLabel, null, debt.getSortOrder(), debt.getCreatedAt());
+                dueAmount, dueLabel, debt.getStatus() == DebtStatus.PAID, null,
+                debt.getSortOrder(), debt.getCreatedAt());
     }
 
     private static BigDecimal openDueAmount(Debt debt, OpenLoanRecord record) {
@@ -141,10 +143,19 @@ public final class DebtCalculator {
 
         BigDecimal remaining = latest.getRemainingPrincipal();
         BigDecimal dueAmount = openDueAmount(debt, latest);
+        boolean currentPeriodPaid = remaining.compareTo(BigDecimal.ZERO) <= 0
+                || openRecords.stream()
+                        .sorted(Comparator.comparingInt(OpenLoanRecord::getNo))
+                        .filter(record -> BillingPeriod.isCurrent(record.getPayDate()))
+                        .findFirst()
+                        .map(record -> record.getStatus() == PaymentStatus.PAID)
+                        .orElse(false);
         String dueLabel;
 
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
             dueLabel = "จ่ายครบแล้ว";
+        } else if (currentPeriodPaid) {
+            dueLabel = "ชำระงวดเดือนนี้แล้ว (เงินต้นคงเหลือ " + formatAmount(remaining) + ")";
         } else if (latest.getInterest().compareTo(BigDecimal.ZERO) > 0) {
             dueLabel = "ดอกเบี้ยรายเดือน (เงินต้นคงเหลือ " + formatAmount(remaining) + ")";
         } else if (debt.getInstallmentAmount() != null) {
@@ -164,7 +175,8 @@ public final class DebtCalculator {
                 debt.getTitle(), debt.getDescription(), debt.getMethod(),
                 debt.getPrincipalAmount(), null, null,
                 debt.getPaidAmount(), lastPayDate, debt.getStatus(),
-                dueAmount, dueLabel, latest.getInterest(), debt.getSortOrder(), debt.getCreatedAt());
+                dueAmount, dueLabel, currentPeriodPaid, latest.getInterest(),
+                debt.getSortOrder(), debt.getCreatedAt());
     }
 
     private static DebtSummaryResponse summarizeFull(Debt debt) {
@@ -180,7 +192,7 @@ public final class DebtCalculator {
                 debt.getTitle(), debt.getDescription(), debt.getMethod(),
                 debt.getPrincipalAmount(), null, null,
                 debt.getPaidAmount(), lastPayDate, debt.getStatus(),
-                dueAmount, dueLabel, null, debt.getSortOrder(), debt.getCreatedAt());
+                dueAmount, dueLabel, paid, null, debt.getSortOrder(), debt.getCreatedAt());
     }
 
     private static InstallmentResponse toInstallmentResponse(Installment installment) {
