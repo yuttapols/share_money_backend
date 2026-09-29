@@ -67,9 +67,8 @@ public class ReportService {
 
     private ReportLine toReportLine(DebtSummaryResponse debt, OpenLoanRecord currentDueRecord) {
         if (debt.method() == DebtMethod.OPEN && currentDueRecord != null) {
-            BigDecimal due = currentDueRecord.getInterest().add(currentDueRecord.getTotalPaid());
             boolean paid = currentDueRecord.getStatus() == PaymentStatus.PAID;
-            return new ReportLine(debt.title(), debt.dueLabel(), due, paid);
+            return new ReportLine(debt.title(), debt.dueLabel(), debt.dueAmount(), paid);
         }
         // OPEN debts with no record matching "current due" (e.g. paid ahead of schedule, or this
         // month's record hasn't been added yet) fall back to the existing latest-record-based amount

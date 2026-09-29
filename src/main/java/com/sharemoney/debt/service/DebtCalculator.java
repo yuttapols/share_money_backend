@@ -123,23 +123,33 @@ public final class DebtCalculator {
                 dueAmount, dueLabel, null, debt.getSortOrder(), debt.getCreatedAt());
     }
 
+    private static BigDecimal openDueAmount(Debt debt, OpenLoanRecord record) {
+        BigDecimal remaining = record.getRemainingPrincipal();
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (record.getInterest().compareTo(BigDecimal.ZERO) > 0) {
+            return record.getInterest();
+        }
+        return debt.getInstallmentAmount() != null ? debt.getInstallmentAmount() : remaining;
+    }
+
     private static DebtSummaryResponse summarizeOpen(Debt debt, List<OpenLoanRecord> openRecords) {
         OpenLoanRecord latest = openRecords.stream()
                 .max(Comparator.comparingInt(OpenLoanRecord::getNo))
                 .orElseThrow();
 
         BigDecimal remaining = latest.getRemainingPrincipal();
-        BigDecimal dueAmount;
+        BigDecimal dueAmount = openDueAmount(debt, latest);
         String dueLabel;
 
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
-            dueAmount = BigDecimal.ZERO;
             dueLabel = "จ่ายครบแล้ว";
         } else if (latest.getInterest().compareTo(BigDecimal.ZERO) > 0) {
-            dueAmount = latest.getInterest();
             dueLabel = "ดอกเบี้ยรายเดือน (เงินต้นคงเหลือ " + formatAmount(remaining) + ")";
+        } else if (debt.getInstallmentAmount() != null) {
+            dueLabel = "ยอดที่ต้องชำระ (เงินต้นคงเหลือ " + formatAmount(remaining) + ")";
         } else {
-            dueAmount = remaining;
             dueLabel = "ชำระเงินต้นคงเหลือทั้งหมด";
         }
 
