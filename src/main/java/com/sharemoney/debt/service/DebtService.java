@@ -15,6 +15,7 @@ import com.sharemoney.debt.entity.DebtMethod;
 import com.sharemoney.debt.entity.DebtStatus;
 import com.sharemoney.debt.entity.Installment;
 import com.sharemoney.debt.entity.InstallmentKind;
+import com.sharemoney.debt.entity.InstallmentStatus;
 import com.sharemoney.debt.entity.OpenLoanRecord;
 import com.sharemoney.debt.entity.PaymentStatus;
 import com.sharemoney.debt.repository.DebtRepository;
@@ -177,7 +178,7 @@ public class DebtService {
             installment.setNo(no);
             installment.setAmount(request.installmentAmount());
             installment.setKind(InstallmentKind.PRINCIPAL);
-            installment.setStatus(PaymentStatus.UNPAID);
+            installment.setStatus(InstallmentStatus.UNPAID);
             installment.setDueDate(request.startDate().plusMonths(no - 1L));
             debt.getInstallments().add(installment);
         }

@@ -88,6 +88,12 @@ public class DebtController {
         return ApiResponse.success(installmentPaymentService.payInterest(id, no, request), "Data has been saved successfully.");
     }
 
+    @PostMapping("/{id}/installments/{no}/cancel-interest")
+    @PreAuthorize("hasRole('CREDITOR')")
+    public ApiResponse<DebtDetailResponse> cancelInterest(@PathVariable Long id, @PathVariable int no) {
+        return ApiResponse.success(installmentPaymentService.cancelInterest(id, no), "Data has been saved successfully.");
+    }
+
     @PostMapping("/{id}/full-paid")
     @PreAuthorize("hasRole('CREDITOR')")
     public ApiResponse<DebtDetailResponse> fullPaid(@PathVariable Long id, @Valid @RequestBody FullPaidRequest request) {

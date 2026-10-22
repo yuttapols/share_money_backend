@@ -2,20 +2,21 @@ package com.sharemoney.debt.service;
 
 import com.sharemoney.common.error.BusinessException;
 import com.sharemoney.common.error.ErrorCode;
+import com.sharemoney.common.period.BillingPeriod;
 import com.sharemoney.debt.dto.DebtDetailResponse;
 import com.sharemoney.debt.dto.PayInstallmentRequest;
 import com.sharemoney.debt.dto.PayInterestRequest;
 import com.sharemoney.debt.entity.Debt;
 import com.sharemoney.debt.entity.DebtMethod;
 import com.sharemoney.debt.entity.Installment;
-import com.sharemoney.debt.entity.InstallmentKind;
-import com.sharemoney.debt.entity.PaymentStatus;
+import com.sharemoney.debt.entity.InstallmentInterestPayment;
+import com.sharemoney.debt.entity.InstallmentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Comparator;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,11 +33,11 @@ public class InstallmentPaymentService {
             if (request.payDate() == null) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "payDate is required when paid=true.");
             }
-            installment.setStatus(PaymentStatus.PAID);
+            installment.setStatus(InstallmentStatus.PAID);
             installment.setPayDate(request.payDate());
             installment.setPaidAt(Instant.now());
         } else {
-            installment.setStatus(PaymentStatus.UNPAID);
+            installment.setStatus(unpaidStatusOf(installment));
             installment.setPayDate(null);
             installment.setPaidAt(null);
         }
@@ -50,33 +51,51 @@ public class InstallmentPaymentService {
         Debt debt = loadInstallmentDebt(debtId);
         Installment installment = findInstallment(debt, no);
 
-        if (installment.getStatus() == PaymentStatus.PAID) {
+        if (installment.getStatus() == InstallmentStatus.PAID) {
             throw new BusinessException(ErrorCode.INSTALLMENT_ALREADY_PAID);
         }
+        Installment nextDue = DebtCalculator.nextDueInstallment(debt.getInstallments());
+        if (nextDue != installment) {
+            throw new BusinessException(ErrorCode.INSTALLMENT_NOT_NEXT_DUE);
+        }
+        if (installment.hasInterestPaidIn(BillingPeriod.of(request.payDate()))) {
+            throw new BusinessException(ErrorCode.INTEREST_ALREADY_PAID_THIS_PERIOD);
+        }
 
-        installment.setKind(InstallmentKind.INTEREST);
-        installment.setStatus(PaymentStatus.PAID);
-        installment.setPayDate(request.payDate());
-        installment.setPaidAt(Instant.now());
-
-        Installment last = debt.getInstallments().stream()
-                .max(Comparator.comparingInt(Installment::getNo))
-                .orElse(installment);
-
-        Installment appended = new Installment();
-        appended.setDebt(debt);
-        appended.setNo(last.getNo() + 1);
-        appended.setAmount(installment.getAmount());
-        appended.setKind(InstallmentKind.PRINCIPAL);
-        appended.setStatus(PaymentStatus.UNPAID);
-        appended.setDueDate(last.getDueDate().plusMonths(1));
-        debt.getInstallments().add(appended);
-
-        debt.setInstallmentCount(debt.getInstallmentCount() + 1);
-        debt.setPrincipalAmount(debt.getPrincipalAmount().add(installment.getAmount()));
+        InstallmentInterestPayment payment = new InstallmentInterestPayment();
+        payment.setInstallment(installment);
+        payment.setPayDate(request.payDate());
+        payment.setAmount(request.amount() != null ? request.amount() : installment.getAmount());
+        payment.setPaidAt(Instant.now());
+        installment.getInterestPayments().add(payment);
+        installment.setStatus(InstallmentStatus.INTEREST_PAID);
 
         DebtCalculator.recalculateInstallmentDebt(debt);
         return DebtCalculator.toDetail(debt);
+    }
+
+    @Transactional
+    public DebtDetailResponse cancelInterest(Long debtId, int no) {
+        Debt debt = loadInstallmentDebt(debtId);
+        Installment installment = findInstallment(debt, no);
+
+        if (installment.getStatus() == InstallmentStatus.PAID) {
+            throw new BusinessException(ErrorCode.INSTALLMENT_ALREADY_PAID);
+        }
+        List<InstallmentInterestPayment> payments = installment.getInterestPayments();
+        if (payments.isEmpty()) {
+            throw new BusinessException(ErrorCode.INTEREST_PAYMENT_NOT_FOUND);
+        }
+
+        payments.remove(payments.size() - 1);
+        installment.setStatus(unpaidStatusOf(installment));
+
+        DebtCalculator.recalculateInstallmentDebt(debt);
+        return DebtCalculator.toDetail(debt);
+    }
+
+    private InstallmentStatus unpaidStatusOf(Installment installment) {
+        return installment.getInterestPayments().isEmpty() ? InstallmentStatus.UNPAID : InstallmentStatus.INTEREST_PAID;
     }
 
     private Debt loadInstallmentDebt(Long debtId) {

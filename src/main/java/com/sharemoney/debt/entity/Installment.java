@@ -1,5 +1,7 @@
 package com.sharemoney.debt.entity;
 
+import com.sharemoney.common.period.BillingPeriod;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,14 +12,20 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "installments")
@@ -46,7 +54,7 @@ public class Installment {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private PaymentStatus status = PaymentStatus.UNPAID;
+    private InstallmentStatus status = InstallmentStatus.UNPAID;
 
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
@@ -56,4 +64,13 @@ public class Installment {
 
     @Column(name = "paid_at")
     private Instant paidAt;
+
+    @OneToMany(mappedBy = "installment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("payDate ASC, id ASC")
+    @BatchSize(size = 100)
+    private List<InstallmentInterestPayment> interestPayments = new ArrayList<>();
+
+    public boolean hasInterestPaidIn(YearMonth period) {
+        return interestPayments.stream().anyMatch(payment -> BillingPeriod.of(payment.getPayDate()).equals(period));
+    }
 }

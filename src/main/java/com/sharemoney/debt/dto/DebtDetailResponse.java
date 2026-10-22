@@ -21,6 +21,7 @@ public record DebtDetailResponse(
         BigDecimal installmentAmount,
         Integer installmentCount,
         BigDecimal interest,
+        BigDecimal interestPaidTotal,
         List<InstallmentResponse> installments,
         List<OpenLoanRecordResponse> openRecords
 ) {

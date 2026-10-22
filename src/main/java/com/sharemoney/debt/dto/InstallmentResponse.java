@@ -1,7 +1,7 @@
 package com.sharemoney.debt.dto;
 
 import com.sharemoney.debt.entity.InstallmentKind;
-import com.sharemoney.debt.entity.PaymentStatus;
+import com.sharemoney.debt.entity.InstallmentStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,9 +11,12 @@ public record InstallmentResponse(
         int no,
         BigDecimal amount,
         InstallmentKind kind,
-        PaymentStatus status,
+        InstallmentStatus status,
         LocalDate dueDate,
         LocalDate payDate,
-        Instant paidAt
+        Instant paidAt,
+        int interestPaidCount,
+        BigDecimal interestPaidTotal,
+        LocalDate lastInterestPayDate
 ) {
 }

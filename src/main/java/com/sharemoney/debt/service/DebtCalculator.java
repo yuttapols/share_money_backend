@@ -9,6 +9,8 @@ import com.sharemoney.debt.entity.Debt;
 import com.sharemoney.debt.entity.DebtMethod;
 import com.sharemoney.debt.entity.DebtStatus;
 import com.sharemoney.debt.entity.Installment;
+import com.sharemoney.debt.entity.InstallmentInterestPayment;
+import com.sharemoney.debt.entity.InstallmentStatus;
 import com.sharemoney.debt.entity.OpenLoanRecord;
 import com.sharemoney.debt.entity.PaymentStatus;
 
@@ -19,6 +21,8 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 public final class DebtCalculator {
 
@@ -31,19 +35,20 @@ public final class DebtCalculator {
         List<Installment> installments = debt.getInstallments();
 
         BigDecimal paidAmount = installments.stream()
-                .filter(installment -> installment.getStatus() == PaymentStatus.PAID)
+                .filter(installment -> installment.getStatus() == InstallmentStatus.PAID)
                 .map(Installment::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        long paidCount = installments.stream().filter(installment -> installment.getStatus() == PaymentStatus.PAID).count();
+        long paidCount = installments.stream().filter(installment -> installment.getStatus() == InstallmentStatus.PAID).count();
+        boolean anyInterestPaid = installments.stream().anyMatch(installment -> !installment.getInterestPayments().isEmpty());
 
         DebtStatus status;
-        if (paidCount == 0) {
-            status = DebtStatus.PENDING;
-        } else if (paidCount == installments.size()) {
+        if (!installments.isEmpty() && paidCount == installments.size()) {
             status = DebtStatus.PAID;
-        } else {
+        } else if (paidCount > 0 || anyInterestPaid) {
             status = DebtStatus.PARTIAL;
+        } else {
+            status = DebtStatus.PENDING;
         }
 
         debt.setPaidAmount(paidAmount);
@@ -91,37 +96,65 @@ public final class DebtCalculator {
                 ? latestOpenRecord(debt).getInterest()
                 : null;
 
+        BigDecimal interestPaidTotal = debt.getMethod() == DebtMethod.INSTALLMENT
+                ? debt.getInstallments().stream()
+                        .flatMap(installment -> installment.getInterestPayments().stream())
+                        .map(InstallmentInterestPayment::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                : null;
+
         return new DebtDetailResponse(
                 debt.getId(), debt.getCreditor().getUsername(), debt.getDebtor().getUsername(),
                 debt.getTitle(), debt.getDescription(), debt.getMethod(),
                 debt.getPrincipalAmount(), debt.getPaidAmount(), debt.getStatus(),
                 debt.getStartDate(), debt.getInstallmentAmount(), debt.getInstallmentCount(),
-                interest, installments, openRecords);
+                interest, interestPaidTotal, installments, openRecords);
+    }
+
+    public static Installment nextDueInstallment(List<Installment> installments) {
+        return installments.stream()
+                .filter(installment -> installment.getStatus() != InstallmentStatus.PAID)
+                .min(Comparator.comparingInt(Installment::getNo))
+                .orElse(null);
     }
 
     private static DebtSummaryResponse summarizeInstallment(Debt debt, List<Installment> installments) {
-        long paidCount = installments.stream().filter(i -> i.getStatus() == PaymentStatus.PAID).count();
+        long paidCount = installments.stream().filter(i -> i.getStatus() == InstallmentStatus.PAID).count();
 
-        LocalDate lastPayDate = installments.stream()
-                .filter(i -> i.getStatus() == PaymentStatus.PAID && i.getPayDate() != null)
+        LocalDate lastPrincipalPayDate = installments.stream()
+                .filter(i -> i.getStatus() == InstallmentStatus.PAID && i.getPayDate() != null)
                 .map(Installment::getPayDate)
                 .max(Comparator.naturalOrder())
                 .orElse(null);
-
-        Installment nextUnpaid = installments.stream()
-                .filter(i -> i.getStatus() == PaymentStatus.UNPAID)
-                .min(Comparator.comparingInt(Installment::getNo))
+        LocalDate lastInterestPayDate = installments.stream()
+                .flatMap(i -> i.getInterestPayments().stream())
+                .map(InstallmentInterestPayment::getPayDate)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+        LocalDate lastPayDate = Stream.of(lastPrincipalPayDate, lastInterestPayDate)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
                 .orElse(null);
 
-        BigDecimal dueAmount = nextUnpaid != null ? nextUnpaid.getAmount() : BigDecimal.ZERO;
-        String dueLabel = nextUnpaid != null ? "งวดที่ " + nextUnpaid.getNo() : "จ่ายครบแล้ว";
+        Installment nextDue = nextDueInstallment(installments);
+        boolean interestPaidThisPeriod = nextDue != null && nextDue.hasInterestPaidIn(BillingPeriod.current());
+
+        BigDecimal dueAmount = nextDue != null ? nextDue.getAmount() : BigDecimal.ZERO;
+        String dueLabel;
+        if (nextDue == null) {
+            dueLabel = "จ่ายครบแล้ว";
+        } else if (interestPaidThisPeriod) {
+            dueLabel = "ตัดดอกเดือนนี้แล้ว (ค้างงวดที่ " + nextDue.getNo() + ")";
+        } else {
+            dueLabel = "งวดที่ " + nextDue.getNo();
+        }
 
         return new DebtSummaryResponse(
                 debt.getId(), debt.getCreditor().getUsername(), debt.getDebtor().getUsername(),
                 debt.getTitle(), debt.getDescription(), debt.getMethod(),
                 debt.getPrincipalAmount(), debt.getInstallmentCount(), (int) paidCount,
                 debt.getPaidAmount(), lastPayDate, debt.getStatus(),
-                dueAmount, dueLabel, debt.getStatus() == DebtStatus.PAID, null,
+                dueAmount, dueLabel, debt.getStatus() == DebtStatus.PAID || interestPaidThisPeriod, null,
                 debt.getSortOrder(), debt.getCreatedAt());
     }
 
@@ -196,8 +229,18 @@ public final class DebtCalculator {
     }
 
     private static InstallmentResponse toInstallmentResponse(Installment installment) {
+        List<InstallmentInterestPayment> payments = installment.getInterestPayments();
+        BigDecimal interestPaidTotal = payments.stream()
+                .map(InstallmentInterestPayment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDate lastInterestPayDate = payments.stream()
+                .map(InstallmentInterestPayment::getPayDate)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+
         return new InstallmentResponse(installment.getNo(), installment.getAmount(), installment.getKind(),
-                installment.getStatus(), installment.getDueDate(), installment.getPayDate(), installment.getPaidAt());
+                installment.getStatus(), installment.getDueDate(), installment.getPayDate(), installment.getPaidAt(),
+                payments.size(), interestPaidTotal, lastInterestPayDate);
     }
 
     private static OpenLoanRecordResponse toOpenRecordResponse(OpenLoanRecord record) {
